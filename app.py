@@ -3,24 +3,33 @@ import time
 import os
 import tkinter.messagebox
 from datetime import datetime
-
 import customtkinter as ctk
+from dotenv import load_dotenv  # <--- NEW IMPORT
 
-# Import our new module
+# Import our module
 from api.detection import FocusDetector
+
+# Load variables from .env file into os.environ
+load_dotenv()  # <--- LOAD THE FILE
+
+# ==========================================
+# 🔑 CONFIGURATION
+# Now this works automatically because load_dotenv found the file
+# ==========================================
+API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 class FocusApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("FocusGuard (Modular)")
-        self.geometry("500x650")
+        self.title("FocusGuard")
+        self.geometry("500x550")
         ctk.set_appearance_mode("dark")
 
         # State variables
         self.is_running = False
         self.monitor_thread = None
-        self.detector = None  # Instance of FocusDetector
+        self.detector = None 
         self.distraction_criteria = ""
         self.duration_minutes = 0
 
@@ -31,17 +40,8 @@ class FocusApp(ctk.CTk):
         self.label_title = ctk.CTkLabel(self, text="FocusGuard AI", font=("Roboto", 24, "bold"))
         self.label_title.pack(pady=15)
 
-        # API Key Input
-        self.api_frame = ctk.CTkFrame(self)
-        self.api_frame.pack(pady=5, padx=20, fill="x")
-        
-        self.label_api = ctk.CTkLabel(self.api_frame, text="OpenRouter API Key:")
-        self.label_api.pack(anchor="w", padx=10, pady=(10,0))
-        
-        self.entry_api = ctk.CTkEntry(self.api_frame, placeholder_text="sk-or-...")
-        if os.getenv("OPENROUTER_API_KEY"):
-            self.entry_api.insert(0, os.getenv("OPENROUTER_API_KEY"))
-        self.entry_api.pack(fill="x", padx=10, pady=(5, 10))
+        self.label_subtitle = ctk.CTkLabel(self, text="Stay blocked in.", font=("Roboto", 12), text_color="gray")
+        self.label_subtitle.pack(pady=(0, 15))
 
         # Goal Input
         self.label_goal = ctk.CTkLabel(self, text="What is your focus goal?")
@@ -62,7 +62,7 @@ class FocusApp(ctk.CTk):
         # Status / Logs
         self.textbox_log = ctk.CTkTextbox(self, height=200)
         self.textbox_log.pack(pady=10, padx=20, fill="both", expand=True)
-        self.textbox_log.insert("0.0", "Ready. Please enter your key and goal.\n")
+        self.textbox_log.insert("0.0", "Ready. Enter your goal to begin.\n")
 
     def log(self, message):
         self.after(0, lambda: self._update_log(message))
@@ -79,12 +79,16 @@ class FocusApp(ctk.CTk):
             self.start_session()
 
     def start_session(self):
-        api_key = self.entry_api.get().strip()
         goal = self.entry_goal.get().strip()
         duration = self.entry_time.get().strip()
 
-        if not api_key or not goal or not duration:
-            tkinter.messagebox.showerror("Error", "Please fill in all fields.")
+        if not goal or not duration:
+            tkinter.messagebox.showerror("Error", "Please fill in your goal and duration.")
+            return
+
+        # Check if API Key was loaded successfully
+        if not API_KEY:
+            tkinter.messagebox.showerror("Config Error", "API Key not found in .env file!")
             return
 
         try:
@@ -94,15 +98,13 @@ class FocusApp(ctk.CTk):
             return
 
         # Initialize the Detection Module
-        self.detector = FocusDetector(api_key)
+        self.detector = FocusDetector(API_KEY)
 
         self.is_running = True
         self.btn_start.configure(text="Stop Session", fg_color="#d93025")
         self.entry_goal.configure(state="disabled")
         self.entry_time.configure(state="disabled")
-        self.entry_api.configure(state="disabled")
 
-        # Start background thread
         self.monitor_thread = threading.Thread(target=self.run_monitoring_loop, args=(goal,))
         self.monitor_thread.daemon = True
         self.monitor_thread.start()
@@ -112,37 +114,31 @@ class FocusApp(ctk.CTk):
         self.btn_start.configure(text="Start Focus Session", fg_color="#1a73e8")
         self.entry_goal.configure(state="normal")
         self.entry_time.configure(state="normal")
-        self.entry_api.configure(state="normal")
         self.log("Session stopped.")
 
     def run_monitoring_loop(self, goal):
         self.log(f"Analyzing goal: '{goal}'...")
         
-        # 1. Get Criteria (using our new module)
         self.distraction_criteria = self.detector.analyze_goal_criteria(goal)
         
         if not self.distraction_criteria:
-            self.log("Failed to generate criteria. Check API Key.")
+            self.log("Failed to connect to AI. Check .env file.")
             self.after(0, self.stop_session)
             return
 
-        self.log(f"Tracking distractions: {self.distraction_criteria}")
+        self.log(f"Avoid: {self.distraction_criteria}")
         
         start_time_epoch = time.time()
         end_time_epoch = start_time_epoch + (self.duration_minutes * 60)
 
-        # 2. Monitoring Loop
         while self.is_running and time.time() < end_time_epoch:
             
-            # Use the module to check the screen
-            # Note: We don't need to pass the image here, the module handles capture
             result = self.detector.check_current_screen(goal, self.distraction_criteria)
 
             if result and result.upper().startswith("YES"):
-                reason = result.split(":", 1)[1].strip() if ":" in result else "Unknown distraction"
+                reason = result.split(":", 1)[1].strip() if ":" in result else "Distraction"
                 self.log(f"⚠️ DISTRACTION: {reason}")
                 
-                # Alert User
                 self.after(0, lambda r=reason: tkinter.messagebox.showwarning(
                     "FocusGuard Alert",
                     f"Get back to work!\n\nDetected: {r}"
@@ -150,16 +146,15 @@ class FocusApp(ctk.CTk):
             elif result and result.upper().startswith("NO"):
                 self.log("✅ Focused.")
             else:
-                self.log(f"❓ Status: {result}")
+                self.log(f"❓ Analyzing...")
 
-            # Sleep Loop (check is_running frequently for responsiveness)
             for _ in range(15):
                 if not self.is_running: break
                 time.sleep(1)
 
         if self.is_running:
-            self.log("Time is up! Great work.")
-            self.after(0, lambda: tkinter.messagebox.showinfo("Finished", "Session complete!"))
+            self.log("Session complete!")
+            self.after(0, lambda: tkinter.messagebox.showinfo("Finished", "Great focus session!"))
             self.after(0, self.stop_session)
 
 if __name__ == "__main__":
