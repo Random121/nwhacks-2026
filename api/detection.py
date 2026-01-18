@@ -13,7 +13,7 @@ class FocusDetector:
             base_url="https://openrouter.ai/api/v1",
             api_key=api_key,
             default_headers={
-                "HTTP-Referer": "https://github.com/FocusGuard",
+                "HTTP-Referer": "https://github.com/Random121/nwhacks-2026",
                 "X-Title": "FocusGuard Desktop App",
             }
         )
@@ -58,7 +58,7 @@ class FocusDetector:
         """
         try:
             base64_image = self._capture_screen_base64()
-            
+
             prompt = (
                 f"You are a strict but fair productivity guard. "
                 f"User Goal: '{goal}'. "
