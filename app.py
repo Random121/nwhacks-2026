@@ -6,6 +6,7 @@ from datetime import datetime
 import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
 from dotenv import load_dotenv
+from PIL import Image
 
 from api.detection import FocusDetector
 from api.webcam import EyeTracker
@@ -18,8 +19,6 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 SERIAL_PORT = os.getenv("SERIAL_PORT")
 SERIAL_BAUD = os.getenv("SERIAL_BAUD")
-
-# Configuration
 ELEVENLABS_VOICE_ID = "KLZOWyG48RjZkAAjuM89"
 
 class FocusApp(ctk.CTk):
@@ -30,18 +29,15 @@ class FocusApp(ctk.CTk):
         super().__init__()
 
         self.title("Get Back to Work")
-        self.geometry("500x600")
+        self.geometry("600x750")
         ctk.set_appearance_mode("dark")
+        self.center_window()
 
-        # Logic Components
         self.detector = None
         self.eye_tracker = None
-
-        # State
         self.is_running = False
-        self.monitor_thread = None
         self.alert_showing = False
-        self.last_alert_time = 0  # <--- NEW: Cooldown timer
+        self.last_alert_time = 0
         self.distraction_criteria = ""
         self.duration_minutes = 0
 
@@ -51,15 +47,28 @@ class FocusApp(ctk.CTk):
             self.slapper = None
 
         self.voice = VoiceAudio(key=ELEVENLABS_API_KEY)
-
         self.setup_ui()
+
+    def center_window(self):
+        self.update_idletasks()
+        width = 600
+        height = 750
+        x = (self.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.winfo_screenheight() // 2) - (height // 2)
+        self.geometry(f'{width}x{height}+{x}+{y}')
 
     def setup_ui(self):
         self.label_title = ctk.CTkLabel(self, text="Get Back to Work", font=("Roboto", 24, "bold"))
-        self.label_title.pack(pady=15)
+        self.label_title.pack(pady=(15, 5))
 
         self.label_subtitle = ctk.CTkLabel(self, text="Eyes on your goal.", font=("Roboto", 12), text_color="gray")
-        self.label_subtitle.pack(pady=(0, 15))
+        self.label_subtitle.pack(pady=(0, 10))
+
+        # Camera Feed
+        self.camera_frame = ctk.CTkFrame(self, width=320, height=240, fg_color="black")
+        self.camera_frame.pack(pady=10)
+        self.camera_label = ctk.CTkLabel(self.camera_frame, text="Camera Off", width=320, height=240)
+        self.camera_label.pack()
 
         self.entry_goal = ctk.CTkEntry(self, placeholder_text="e.g. Studying Algorithms")
         self.entry_goal.pack(pady=5, padx=20, fill="x")
@@ -68,9 +77,9 @@ class FocusApp(ctk.CTk):
         self.entry_time.pack(pady=5, padx=20, fill="x")
 
         self.btn_start = ctk.CTkButton(self, text="Start Session", command=self.toggle_session, fg_color="#1a73e8")
-        self.btn_start.pack(pady=20)
+        self.btn_start.pack(pady=10)
 
-        self.textbox_log = ctk.CTkTextbox(self, height=200)
+        self.textbox_log = ctk.CTkTextbox(self, height=150)
         self.textbox_log.pack(pady=10, padx=20, fill="both", expand=True)
         self.textbox_log.insert("0.0", "Ready.\n")
 
@@ -95,34 +104,13 @@ class FocusApp(ctk.CTk):
         goal = self.entry_goal.get().strip()
         duration = self.entry_time.get().strip()
 
-        if not goal or not duration:
-            alert = CTkMessagebox(title="Error",
-                                  message="Please fill in your goal and duration.",
-                                  icon="cancel")
-            alert.get()
-            return
-
-        if not OPENROUTER_API_KEY:
-            alert = CTkMessagebox(title="Error",
-                        message="API Key not found!",
-                        icon="cancel")
-            alert.get()
+        if not goal or not duration or not OPENROUTER_API_KEY:
+            CTkMessagebox(title="Error", message="Missing inputs or API Key", icon="cancel")
             return
 
         try:
             self.duration_minutes = int(duration)
         except ValueError:
-            alert = CTkMessagebox(title="Error",
-                                  message="Please enter a duration in minutes",
-                                  icon="cancel")
-            alert.get()
-            return
-
-        if self.duration_minutes <= 0:
-            alert = CTkMessagebox(title="Error",
-                                  message="You should focus for at least 1 minute!",
-                                  icon="cancel")
-            alert.get()
             return
 
         self.detector = FocusDetector(OPENROUTER_API_KEY)
@@ -140,6 +128,25 @@ class FocusApp(ctk.CTk):
         self.monitor_thread = threading.Thread(target=self.run_monitoring_loop, args=(goal,))
         self.monitor_thread.daemon = True
         self.monitor_thread.start()
+        
+        self.update_camera_feed()
+
+    def update_camera_feed(self):
+        if not self.is_running:
+            self.camera_label.configure(image=None, text="Camera Off")
+            return
+
+        if self.eye_tracker:
+            frame = self.eye_tracker.get_frame()
+            if frame is not None:
+                pil_img = Image.fromarray(frame)
+                pil_img = pil_img.resize((320, 240))
+                ctk_img = ctk.CTkImage(light_image=pil_img, dark_image=pil_img, size=(320, 240))
+                self.camera_label.configure(image=ctk_img, text="")
+            else:
+                self.camera_label.configure(text="Camera Paused/Loading...")
+        
+        self.after(30, self.update_camera_feed)
 
     def stop_session(self):
         self.is_running = False
@@ -152,52 +159,56 @@ class FocusApp(ctk.CTk):
         self.log("Session stopped.")
 
     def show_alert(self, reason):
-        """Shows alert, waits for user to close, then sets cooldown."""
+        # 1. PAUSE CAMERA (Fixes audio interference)
+        self.log("🛑 Pausing Camera for Audio...")
+        if self.eye_tracker:
+            self.eye_tracker.set_paused(True)
+
+        # 2. SHOW ALERT VISUALLY
         alert = CTkMessagebox(title="Stop getting distracted!",
                             message=reason,
-                            option_1="I'll apologize and lock in for real now",
+                            option_1="I'll apologize and lock in",
                             icon="warning",
                             topmost=True)
 
-        alert.after(50, lambda: self.play_sound(reason))
+        # 3. PLAY SOUND (Delayed slightly so popup renders first)
+        alert.after(500, lambda: self.play_sound(reason))
 
-        if self.slapper is not None:
-            self.slapper.slap_user()
-
+        if self.slapper: self.slapper.slap_user()
+        
+        # 4. WAIT FOR USER ACKNOWLEDGE
         alert.get()
 
+        # 5. APOLOGY LOOP
         while True:
-            if not self.is_running:
-                break
+            if not self.is_running: break
 
+            # This blocks for ~5 seconds
             did_apologize = self.voice.listen_for_apology()
-
-            print("apology heard", did_apologize)
+            print("Apology result:", did_apologize)
 
             if did_apologize:
                 break
 
-            if self.slapper is not None:
-                self.slapper.slap_user()
+            if self.slapper: self.slapper.slap_user()
 
-            alert = CTkMessagebox(title="You should at least apologize!",
-                    message="Apologize to Charlie for not locking in",
-                    option_1="Ok",
+            retry = CTkMessagebox(title="You must apologize!",
+                    message="I didn't hear an apology. Say 'Sorry' or 'My Bad'.",
+                    option_1="Try Again",
                     icon="warning",
                     topmost=True)
-            alert.get()
+            retry.get()
+
+        # 6. RESUME CAMERA
+        self.log("✅ Resuming Camera...")
+        if self.eye_tracker:
+            self.eye_tracker.set_paused(False)
 
         self.alert_showing = False
-
-        # ✅ FIX: Give the user 5 seconds of peace to click "Stop" or get back to work
         self.last_alert_time = time.time()
-        self.log("⏸️ Alert closed. Resuming in 5 seconds...")
 
     def show_session_end_alert(self):
-        alert = CTkMessagebox(title="Good job!",
-                              message="Great focus session!",
-                              topmost=True)
-        alert.get()
+        CTkMessagebox(title="Good job!", message="Great focus session!", topmost=True)
 
     def run_monitoring_loop(self, goal):
         self.log(f"Setting up for: '{goal}'...")
@@ -207,53 +218,43 @@ class FocusApp(ctk.CTk):
         end_time = time.time() + (self.duration_minutes * 60)
 
         while self.is_running and time.time() < end_time:
-
-            # --- COOLDOWN CHECK ---
-            # If we just showed an alert, skip checking for 5 seconds
             if time.time() - self.last_alert_time < 5:
                 time.sleep(1)
                 continue
 
-            # 1. Check Screen (Low Frequency)
+            # 1. Screen Check
             self.log("Scanning screen...")
             screen_result = self.detector.check_current_screen(goal, self.distraction_criteria)
 
             if screen_result and screen_result.upper().startswith("YES"):
                  reason = screen_result.split(":", 1)[1].strip() if ":" in screen_result else "Screen Content"
-                 self.log(f"⚠️ SCREEN DISTRACTION: {reason}")
+                 self.log(f"⚠️ SCREEN: {reason}")
                  if not self.alert_showing:
                      self.alert_showing = True
+                     # Use 'after' to run show_alert on Main Thread to prevent crashes
                      self.after(0, lambda r=reason: self.show_alert(r))
-                     # Sleep to prevent multiple triggers while waiting for UI thread
-                     time.sleep(2)
+                     time.sleep(5) # Wait for alert to resolve
                      continue
 
-            # 2. Check Eyes (High Frequency Loop)
-            # Run for ~10 seconds before checking screen again
-            for _ in range(100):
+            # 2. Eye Check
+            for _ in range(50):
                 if not self.is_running: break
+                if time.time() - self.last_alert_time < 5: break
 
-                # Double check cooldown inside the fast loop
-                if time.time() - self.last_alert_time < 5:
-                    break
-
-                if self.eye_tracker.is_distracted:
+                if self.eye_tracker.is_distracted and not self.eye_tracker.paused:
                     reason = self.eye_tracker.distraction_reason
-                    self.log(f"👀 EYE DISTRACTION: {reason}")
-
+                    self.log(f"👀 EYES: {reason}")
                     if not self.alert_showing:
                         self.alert_showing = True
                         self.after(0, lambda r=reason: self.show_alert(r))
-                        time.sleep(2) # Brief pause so we don't spam requests
-                        break # Break inner loop to handle alert
-
+                        time.sleep(5)
+                        break 
                 time.sleep(0.1)
 
         if self.is_running:
             self.log("Session complete!")
             self.after(0, self.show_session_end_alert)
             self.after(0, self.stop_session)
-            tkinter.messagebox.showinfo("Done", "Session Complete!")
 
 if __name__ == "__main__":
     app = FocusApp()
