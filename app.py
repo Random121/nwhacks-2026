@@ -7,12 +7,17 @@ import customtkinter as ctk
 from dotenv import load_dotenv
 
 from api.detection import FocusDetector
+from api.slapper import Slapper
 
 load_dotenv()
 
 API_KEY = os.getenv("OPENROUTER_API_KEY")
+SERIAL_PORT = os.getenv("SERIAL_PORT")
+SERIAL_BAUD = os.getenv("SERIAL_BAUD")
 
 class FocusApp(ctk.CTk):
+    slapper: Slapper
+
     def __init__(self):
         super().__init__()
 
@@ -23,12 +28,14 @@ class FocusApp(ctk.CTk):
         # State variables
         self.is_running = False
         self.monitor_thread = None
-        self.detector = None 
+        self.detector = None
         self.distraction_criteria = ""
         self.duration_minutes = 0
-        
+
         # New flag to prevent spamming alerts
         self.alert_showing = False
+
+        self.slapper = Slapper(SERIAL_PORT, SERIAL_BAUD)
 
         self.setup_ui()
 
@@ -105,38 +112,39 @@ class FocusApp(ctk.CTk):
         self.btn_start.configure(text="Start Focus Session", fg_color="#1a73e8")
         self.entry_goal.configure(state="normal")
         self.entry_time.configure(state="normal")
-        self.log("Session stopped.")    
-    
+        self.log("Session stopped.")
+
     def show_alert(self, reason):
         """Display distraction alert to user."""
+        self.slapper.slap_user()
         tkinter.messagebox.showwarning("FocusGuard Alert", f"Distraction detected: {reason}")
         self.alert_showing = False
 
     def run_monitoring_loop(self, goal):
         self.log(f"Analyzing goal: '{goal}'...")
-        
+
         self.distraction_criteria = self.detector.analyze_goal_criteria(goal)
-        
+
         if not self.distraction_criteria:
             self.log("Failed to connect to AI. Check .env file.")
             self.after(0, self.stop_session)
             return
 
         self.log(f"Avoid: {self.distraction_criteria}")
-        
+
         start_time_epoch = time.time()
         end_time_epoch = start_time_epoch + (self.duration_minutes * 60)
 
         while self.is_running and time.time() < end_time_epoch:
-            
+
             result = self.detector.check_current_screen(goal, self.distraction_criteria)
 
             if result and result.upper().startswith("YES"):
                 reason = result.split(":", 1)[1].strip() if ":" in result else "Distraction"
-                
+
                 # Always log it
                 self.log(f"⚠️ DISTRACTION: {reason}")
-                
+
                 # Only show alert if one isn't already open
                 if not self.alert_showing:
                     self.alert_showing = True
