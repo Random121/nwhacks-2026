@@ -6,22 +6,25 @@ from datetime import datetime
 import customtkinter as ctk
 from CTkMessagebox import CTkMessagebox
 from dotenv import load_dotenv
-import pygame
 
 from api.detection import FocusDetector
 from api.webcam import EyeTracker
 from api.slapper import Slapper
+from api.audio import VoiceAudio
 
 load_dotenv()
-API_KEY = os.getenv("OPENROUTER_API_KEY")
+
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
+ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 SERIAL_PORT = os.getenv("SERIAL_PORT")
 SERIAL_BAUD = os.getenv("SERIAL_BAUD")
 
 # Configuration
-SOUND_FILE = "alert.mp3"
+ELEVENLABS_VOICE_ID = "KLZOWyG48RjZkAAjuM89"
 
 class FocusApp(ctk.CTk):
     slapper: Slapper
+    voice: VoiceAudio
 
     def __init__(self):
         super().__init__()
@@ -42,16 +45,12 @@ class FocusApp(ctk.CTk):
         self.distraction_criteria = ""
         self.duration_minutes = 0
 
-        # Audio Init
-        try:
-            pygame.mixer.init()
-        except Exception as e:
-            print(f"Audio init failed: {e}")
-
         try:
             self.slapper = Slapper(SERIAL_PORT, SERIAL_BAUD)
         except Exception:
             self.slapper = None
+
+        self.voice = VoiceAudio(key=ELEVENLABS_API_KEY)
 
         self.setup_ui()
 
@@ -83,13 +82,8 @@ class FocusApp(ctk.CTk):
         self.textbox_log.insert("end", f"[{timestamp}] {message}\n")
         self.textbox_log.see("end")
 
-    def play_sound(self):
-        if os.path.exists(SOUND_FILE):
-            try:
-                pygame.mixer.music.load(SOUND_FILE)
-                pygame.mixer.music.play()
-            except Exception as e:
-                print(f"Sound error: {e}")
+    def play_sound(self, reason):
+        self.voice.play(ELEVENLABS_VOICE_ID, "Stop getting distracted. Get back to work!")
 
     def toggle_session(self):
         if self.is_running:
@@ -108,7 +102,7 @@ class FocusApp(ctk.CTk):
             alert.get()
             return
 
-        if not API_KEY:
+        if not OPENROUTER_API_KEY:
             alert = CTkMessagebox(title="Error",
                         message="API Key not found!",
                         icon="cancel")
@@ -131,7 +125,7 @@ class FocusApp(ctk.CTk):
             alert.get()
             return
 
-        self.detector = FocusDetector(API_KEY)
+        self.detector = FocusDetector(OPENROUTER_API_KEY)
         self.eye_tracker = EyeTracker()
         self.eye_tracker.start()
 
@@ -159,7 +153,7 @@ class FocusApp(ctk.CTk):
 
     def show_alert(self, reason):
         """Shows alert, waits for user to close, then sets cooldown."""
-        self.play_sound()
+        self.play_sound(reason)
 
         if self.slapper is not None:
             self.slapper.slap_user()
