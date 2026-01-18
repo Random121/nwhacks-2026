@@ -29,7 +29,7 @@ class FocusApp(ctk.CTk):
     def __init__(self):
         super().__init__()
 
-        self.title("FocusGuard (Omni-monitoring)")
+        self.title("Get Back to Work")
         self.geometry("500x600")
         ctk.set_appearance_mode("dark")
 
@@ -55,10 +55,10 @@ class FocusApp(ctk.CTk):
         self.setup_ui()
 
     def setup_ui(self):
-        self.label_title = ctk.CTkLabel(self, text="FocusGuard AI", font=("Roboto", 24, "bold"))
+        self.label_title = ctk.CTkLabel(self, text="Get Back to Work", font=("Roboto", 24, "bold"))
         self.label_title.pack(pady=15)
 
-        self.label_subtitle = ctk.CTkLabel(self, text="Eyes on the prize.", font=("Roboto", 12), text_color="gray")
+        self.label_subtitle = ctk.CTkLabel(self, text="Eyes on your goal.", font=("Roboto", 12), text_color="gray")
         self.label_subtitle.pack(pady=(0, 15))
 
         self.entry_goal = ctk.CTkEntry(self, placeholder_text="e.g. Studying Algorithms")
@@ -83,7 +83,7 @@ class FocusApp(ctk.CTk):
         self.textbox_log.see("end")
 
     def play_sound(self, reason):
-        self.voice.play(ELEVENLABS_VOICE_ID, "Stop getting distracted. Get back to work!")
+        self.voice.play(ELEVENLABS_VOICE_ID, "Stop getting distracted! Get back to work!")
 
     def toggle_session(self):
         if self.is_running:
