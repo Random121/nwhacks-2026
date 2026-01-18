@@ -1,7 +1,11 @@
-# Future implementation for blocking/punishing distractions
+from serial import Serial
+
+
 class Slapper:
-    def __init__(self):
-        pass
+    serial: Serial
+
+    def __init__(self, port, baud):
+        self.serial = Serial(port=port, baudrate=baud)
 
     def slap_user(self):
-        pass
+        self.serial.write(b"F")
