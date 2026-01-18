@@ -160,7 +160,7 @@ class FocusApp(ctk.CTk):
 
     def show_alert(self, reason):
         # 1. PAUSE CAMERA (Fixes audio interference)
-        self.log("🛑 Pausing Camera for Audio...")
+        self.log("Pausing Camera for Audio...")
         if self.eye_tracker:
             self.eye_tracker.set_paused(True)
 
@@ -200,7 +200,7 @@ class FocusApp(ctk.CTk):
             retry.get()
 
         # 6. RESUME CAMERA
-        self.log("✅ Resuming Camera...")
+        self.log("Resuming Camera...")
         if self.eye_tracker:
             self.eye_tracker.set_paused(False)
 
@@ -228,7 +228,7 @@ class FocusApp(ctk.CTk):
 
             if screen_result and screen_result.upper().startswith("YES"):
                  reason = screen_result.split(":", 1)[1].strip() if ":" in screen_result else "Screen Content"
-                 self.log(f"⚠️ SCREEN: {reason}")
+                 self.log(f"SCREEN: {reason}")
                  if not self.alert_showing:
                      self.alert_showing = True
                      # Use 'after' to run show_alert on Main Thread to prevent crashes
@@ -243,7 +243,7 @@ class FocusApp(ctk.CTk):
 
                 if self.eye_tracker.is_distracted and not self.eye_tracker.paused:
                     reason = self.eye_tracker.distraction_reason
-                    self.log(f"👀 EYES: {reason}")
+                    self.log(f"EYES: {reason}")
                     if not self.alert_showing:
                         self.alert_showing = True
                         self.after(0, lambda r=reason: self.show_alert(r))
