@@ -34,7 +34,7 @@ void setup() {
   lcd.print("TO WORK!");
 
   myServo.attach(servoPin);
-  myServo.write(0);
+  myServo.write(180);
 
   showCounter();             // show initial 0
 }
@@ -69,9 +69,9 @@ void loop() {
       }
 
       // ---- Servo ----
-      myServo.write(180);
-      delay(1000);
       myServo.write(0);
+      delay(1000);
+      myServo.write(180);
 
       showCounter();
 
