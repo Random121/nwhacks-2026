@@ -20,10 +20,10 @@ class EyeTracker:
         self.is_running = False
         self.is_distracted = False
         self.distraction_reason = ""
-        
+
         if MEDIAPIPE_AVAILABLE:
             self.face_mesh = mp_face_mesh.FaceMesh(
-                min_detection_confidence=0.5, 
+                min_detection_confidence=0.5,
                 min_tracking_confidence=0.5,
                 refine_landmarks=True
             )
@@ -43,7 +43,7 @@ class EyeTracker:
 
     def _run_loop(self):
         self.cap = cv2.VideoCapture(0)
-        
+
         cam_matrix = None
         dist_matrix = np.zeros((4, 1), dtype=np.float64)
 
@@ -81,20 +81,20 @@ class EyeTracker:
                             if idx in [1, 199, 33, 263, 61, 291]:
                                 x, y = int(lm.x * img_w), int(lm.y * img_h)
                                 face_2d.append([x, y])
-                                face_3d.append([x, y, lm.z])       
+                                face_3d.append([x, y, lm.z])
 
                         face_2d = np.array(face_2d, dtype=np.float64)
                         face_3d = np.array(face_3d, dtype=np.float64)
 
                         success, rot_vec, trans_vec = cv2.solvePnP(face_3d, face_2d, cam_matrix, dist_matrix)
-                        
+
                         if success:
                             rmat, jac = cv2.Rodrigues(rot_vec)
                             data = cv2.RQDecomp3x3(rmat)
                             angles = data[0]
 
-                            x_angle = angles[0] * 360 
-                            y_angle = angles[1] * 360 
+                            x_angle = angles[0] * 360
+                            y_angle = angles[1] * 360
 
                             # ------------------------------------------------
                             # 🛠️ DEBUGGING: Uncomment this to see your numbers!
@@ -103,26 +103,26 @@ class EyeTracker:
 
                             # === RELAXED THRESHOLDS ===
                             # I increased these numbers so it is less sensitive
-                            
+
                             if y_angle < -20: # Was -10
                                 self.is_distracted = True
-                                self.distraction_reason = "Looking Left"
+                                self.distraction_reason = "Stop looking to the left!"
                             elif y_angle > 20: # Was 10
                                 self.is_distracted = True
-                                self.distraction_reason = "Looking Right"
+                                self.distraction_reason = "Stop looking to the right"
                             elif x_angle < -25: # Was -10 (Big change!)
                                 self.is_distracted = True
-                                self.distraction_reason = "Looking Down"
+                                self.distraction_reason = "Stop looking down!"
                             elif x_angle > 25: # Was 20
                                 self.is_distracted = True
-                                self.distraction_reason = "Looking Up"
+                                self.distraction_reason = "Stop looking up!"
                             else:
                                 self.is_distracted = False
                                 self.distraction_reason = ""
                 else:
                     self.is_distracted = True
                     self.distraction_reason = "Away from Desk"
-            
+
             time.sleep(0.06)
-        
+
         self.cap.release()
