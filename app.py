@@ -4,6 +4,7 @@ import os
 import tkinter.messagebox
 from datetime import datetime
 import customtkinter as ctk
+from CTkMessagebox import CTkMessagebox
 from dotenv import load_dotenv
 
 from api.detection import FocusDetector
@@ -35,7 +36,10 @@ class FocusApp(ctk.CTk):
         # New flag to prevent spamming alerts
         self.alert_showing = False
 
-        self.slapper = Slapper(SERIAL_PORT, SERIAL_BAUD)
+        try:
+            self.slapper = Slapper(SERIAL_PORT, SERIAL_BAUD)
+        except Exception:
+            self.slapper = None
 
         self.setup_ui()
 
@@ -82,17 +86,33 @@ class FocusApp(ctk.CTk):
         duration = self.entry_time.get().strip()
 
         if not goal or not duration:
-            tkinter.messagebox.showerror("Error", "Please fill in your goal and duration.")
+            alert = CTkMessagebox(title="Error",
+                                  message="Please fill in your goal and duration.",
+                                  icon="cancel")
+            alert.get()
             return
 
         if not API_KEY:
-            tkinter.messagebox.showerror("Config Error", "API Key not found in .env file!")
+            alert = CTkMessagebox(title="Error",
+                        message="API Key not found!",
+                        icon="cancel")
+            alert.get()
             return
 
         try:
             self.duration_minutes = int(duration)
         except ValueError:
-            tkinter.messagebox.showerror("Error", "Duration must be a number.")
+            alert = CTkMessagebox(title="Error",
+                                  message="Please enter a duration in minutes",
+                                  icon="cancel")
+            alert.get()
+            return
+
+        if self.duration_minutes <= 0:
+            alert = CTkMessagebox(title="Error",
+                                  message="You should focus for at least 1 minute!",
+                                  icon="cancel")
+            alert.get()
             return
 
         self.detector = FocusDetector(API_KEY)
@@ -116,9 +136,23 @@ class FocusApp(ctk.CTk):
 
     def show_alert(self, reason):
         """Display distraction alert to user."""
-        self.slapper.slap_user()
-        tkinter.messagebox.showwarning("FocusGuard Alert", f"Distraction detected: {reason}")
+        if self.slapper is not None:
+            self.slapper.slap_user()
+
+        alert = CTkMessagebox(title="Stop getting distracted!",
+                              message=reason,
+                              option_1="I'm locking in for real now",
+                              icon="warning",
+                              topmost=True)
+        alert.get()
+
         self.alert_showing = False
+
+    def show_session_end_alert(self):
+        alert = CTkMessagebox(title="Good job!",
+                              message="Great focus session!",
+                              topmost=True)
+        alert.get()
 
     def run_monitoring_loop(self, goal):
         self.log(f"Analyzing goal: '{goal}'...")
@@ -166,7 +200,7 @@ class FocusApp(ctk.CTk):
 
         if self.is_running:
             self.log("Session complete!")
-            self.after(0, lambda: tkinter.messagebox.showinfo("Finished", "Great focus session!"))
+            self.after(0, self.show_session_end_alert)
             self.after(0, self.stop_session)
 
 if __name__ == "__main__":
