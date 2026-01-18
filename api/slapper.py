@@ -8,4 +8,4 @@ class Slapper:
         self.serial = Serial(port=port, baudrate=baud)
 
     def slap_user(self):
-        self.serial.write(b"S")
+        self.serial.write(b"F")
