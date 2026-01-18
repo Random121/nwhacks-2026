@@ -5,14 +5,7 @@ import cv2
 import threading
 import time
 import numpy as np
-
-try:
-    from mediapipe import solutions
-    mp_face_mesh = solutions.face_mesh
-    MEDIAPIPE_AVAILABLE = True
-except ImportError:
-    MEDIAPIPE_AVAILABLE = False
-    print("⚠️ MediaPipe not found.")
+from mediapipe import solutions
 
 class EyeTracker:
     def __init__(self):
@@ -21,14 +14,12 @@ class EyeTracker:
         self.is_distracted = False
         self.distraction_reason = ""
 
-        if MEDIAPIPE_AVAILABLE:
-            self.face_mesh = mp_face_mesh.FaceMesh(
-                min_detection_confidence=0.5,
-                min_tracking_confidence=0.5,
-                refine_landmarks=True
-            )
-        else:
-            self.face_mesh = None
+        mp_face_mesh = solutions.face_mesh
+        self.face_mesh = mp_face_mesh.FaceMesh(
+            min_detection_confidence=0.5,
+            min_tracking_confidence=0.5,
+            refine_landmarks=True
+        )
 
     def start(self):
         self.is_running = True
@@ -97,23 +88,20 @@ class EyeTracker:
                             y_angle = angles[1] * 360
 
                             # ------------------------------------------------
-                            # 🛠️ DEBUGGING: Uncomment this to see your numbers!
+                            # DEBUGGING PURPOSES
                             # print(f"Pitch (Up/Down): {x_angle:.2f} | Yaw (Left/Right): {y_angle:.2f}")
                             # ------------------------------------------------
-
-                            # === RELAXED THRESHOLDS ===
                             # I increased these numbers so it is less sensitive
-
-                            if y_angle < -20: # Was -10
+                            if y_angle < -20:
                                 self.is_distracted = True
                                 self.distraction_reason = "Stop looking to the left!"
-                            elif y_angle > 20: # Was 10
+                            elif y_angle > 20:
                                 self.is_distracted = True
                                 self.distraction_reason = "Stop looking to the right"
-                            elif x_angle < -25: # Was -10 (Big change!)
+                            elif x_angle < -25:
                                 self.is_distracted = True
                                 self.distraction_reason = "Stop looking down!"
-                            elif x_angle > 25: # Was 20
+                            elif x_angle > 25:
                                 self.is_distracted = True
                                 self.distraction_reason = "Stop looking up!"
                             else:
