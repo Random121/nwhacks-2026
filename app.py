@@ -4,18 +4,12 @@ import os
 import tkinter.messagebox
 from datetime import datetime
 import customtkinter as ctk
-from dotenv import load_dotenv  # <--- NEW IMPORT
+from dotenv import load_dotenv
 
-# Import our module
 from api.detection import FocusDetector
 
-# Load variables from .env file into os.environ
-load_dotenv()  # <--- LOAD THE FILE
+load_dotenv()
 
-# ==========================================
-# 🔑 CONFIGURATION
-# Now this works automatically because load_dotenv found the file
-# ==========================================
 API_KEY = os.getenv("OPENROUTER_API_KEY")
 
 class FocusApp(ctk.CTk):
@@ -32,34 +26,32 @@ class FocusApp(ctk.CTk):
         self.detector = None 
         self.distraction_criteria = ""
         self.duration_minutes = 0
+        
+        # New flag to prevent spamming alerts
+        self.alert_showing = False
 
         self.setup_ui()
 
     def setup_ui(self):
-        # Title
         self.label_title = ctk.CTkLabel(self, text="FocusGuard AI", font=("Roboto", 24, "bold"))
         self.label_title.pack(pady=15)
 
         self.label_subtitle = ctk.CTkLabel(self, text="Stay blocked in.", font=("Roboto", 12), text_color="gray")
         self.label_subtitle.pack(pady=(0, 15))
 
-        # Goal Input
         self.label_goal = ctk.CTkLabel(self, text="What is your focus goal?")
         self.label_goal.pack(pady=(10, 0))
         self.entry_goal = ctk.CTkEntry(self, placeholder_text="e.g. Studying Algorithms")
         self.entry_goal.pack(pady=5, padx=20, fill="x")
 
-        # Duration Input
         self.label_time = ctk.CTkLabel(self, text="Duration (minutes):")
         self.label_time.pack(pady=(10, 0))
         self.entry_time = ctk.CTkEntry(self, placeholder_text="25")
         self.entry_time.pack(pady=5, padx=20, fill="x")
 
-        # Start/Stop Button
         self.btn_start = ctk.CTkButton(self, text="Start Focus Session", command=self.toggle_session, fg_color="#1a73e8")
         self.btn_start.pack(pady=20)
 
-        # Status / Logs
         self.textbox_log = ctk.CTkTextbox(self, height=200)
         self.textbox_log.pack(pady=10, padx=20, fill="both", expand=True)
         self.textbox_log.insert("0.0", "Ready. Enter your goal to begin.\n")
@@ -86,7 +78,6 @@ class FocusApp(ctk.CTk):
             tkinter.messagebox.showerror("Error", "Please fill in your goal and duration.")
             return
 
-        # Check if API Key was loaded successfully
         if not API_KEY:
             tkinter.messagebox.showerror("Config Error", "API Key not found in .env file!")
             return
@@ -97,10 +88,10 @@ class FocusApp(ctk.CTk):
             tkinter.messagebox.showerror("Error", "Duration must be a number.")
             return
 
-        # Initialize the Detection Module
         self.detector = FocusDetector(API_KEY)
-
         self.is_running = True
+        self.alert_showing = False  # Reset on start
+
         self.btn_start.configure(text="Stop Session", fg_color="#d93025")
         self.entry_goal.configure(state="disabled")
         self.entry_time.configure(state="disabled")
@@ -115,6 +106,12 @@ class FocusApp(ctk.CTk):
         self.entry_goal.configure(state="normal")
         self.entry_time.configure(state="normal")
         self.log("Session stopped.")
+
+    def show_alert(self, reason):
+        """Helper to show alert and reset flag when closed"""
+        tkinter.messagebox.showwarning("FocusGuard Alert", f"Get back to work!\n\nDetected: {reason}")
+        # When the user closes the box, this line runs:
+        self.alert_showing = False
 
     def run_monitoring_loop(self, goal):
         self.log(f"Analyzing goal: '{goal}'...")
@@ -137,17 +134,25 @@ class FocusApp(ctk.CTk):
 
             if result and result.upper().startswith("YES"):
                 reason = result.split(":", 1)[1].strip() if ":" in result else "Distraction"
+                
+                # Always log it
                 self.log(f"⚠️ DISTRACTION: {reason}")
                 
-                self.after(0, lambda r=reason: tkinter.messagebox.showwarning(
-                    "FocusGuard Alert",
-                    f"Get back to work!\n\nDetected: {r}"
-                ))
+                # Only show alert if one isn't already open
+                if not self.alert_showing:
+                    self.alert_showing = True
+                    self.after(0, lambda r=reason: self.show_alert(r))
+                else:
+                    print("Alert skipped (already showing)")
+
             elif result and result.upper().startswith("NO"):
                 self.log("✅ Focused.")
+                # If they are focused now, ensure we are ready to alert next time
+                self.alert_showing = False
             else:
                 self.log(f"❓ Analyzing...")
 
+            # Sleep Loop
             for _ in range(15):
                 if not self.is_running: break
                 time.sleep(1)
