@@ -129,7 +129,7 @@ class EyeTracker:
                                 self.distraction_reason = "Stop looking to the left!"
                             elif y_angle > 20:
                                 self.is_distracted = True
-                                self.distraction_reason = "Stop looking to the right"
+                                self.distraction_reason = "Stop looking to the right!"
                             elif x_angle < -25:
                                 self.is_distracted = True
                                 self.distraction_reason = "Stop looking down!"
