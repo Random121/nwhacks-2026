@@ -83,7 +83,7 @@ class FocusApp(ctk.CTk):
         self.textbox_log.see("end")
 
     def play_sound(self, reason):
-        self.voice.play(ELEVENLABS_VOICE_ID, "Stop getting distracted! Get back to work!")
+        self.voice.play(ELEVENLABS_VOICE_ID, "Stop getting distracted! Apologize and get back to work!")
 
     def toggle_session(self):
         if self.is_running:
@@ -153,17 +153,39 @@ class FocusApp(ctk.CTk):
 
     def show_alert(self, reason):
         """Shows alert, waits for user to close, then sets cooldown."""
-        self.play_sound(reason)
+        alert = CTkMessagebox(title="Stop getting distracted!",
+                            message=reason,
+                            option_1="I'll apologize and lock in for real now",
+                            icon="warning",
+                            topmost=True)
+
+        alert.after(50, lambda: self.play_sound(reason))
 
         if self.slapper is not None:
             self.slapper.slap_user()
 
-        alert = CTkMessagebox(title="Stop getting distracted!",
-                              message=reason,
-                              option_1="I'm locking in for real now",
-                              icon="warning",
-                              topmost=True)
         alert.get()
+
+        while True:
+            if not self.is_running:
+                break
+
+            did_apologize = self.voice.listen_for_apology()
+
+            print("apology heard", did_apologize)
+
+            if did_apologize:
+                break
+
+            if self.slapper is not None:
+                self.slapper.slap_user()
+
+            alert = CTkMessagebox(title="You should at least apologize!",
+                    message="Apologize to Charlie for not locking in",
+                    option_1="Ok",
+                    icon="warning",
+                    topmost=True)
+            alert.get()
 
         self.alert_showing = False
 
