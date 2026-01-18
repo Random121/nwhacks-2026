@@ -37,6 +37,7 @@ opt_einsum==3.4.0
 packaging==25.0
 pillow==12.1.0
 protobuf==4.25.8
+PyAudio==0.2.14
 pycparser==2.23
 pydantic==2.12.5
 pydantic_core==2.41.5
