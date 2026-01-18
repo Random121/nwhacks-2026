@@ -36,7 +36,7 @@ class FocusApp(ctk.CTk):
         self.label_title = ctk.CTkLabel(self, text="FocusGuard AI", font=("Roboto", 24, "bold"))
         self.label_title.pack(pady=15)
 
-        self.label_subtitle = ctk.CTkLabel(self, text="Stay blocked in.", font=("Roboto", 12), text_color="gray")
+        self.label_subtitle = ctk.CTkLabel(self, text="Stay locked in.", font=("Roboto", 12), text_color="gray")
         self.label_subtitle.pack(pady=(0, 15))
 
         self.label_goal = ctk.CTkLabel(self, text="What is your focus goal?")
@@ -105,12 +105,11 @@ class FocusApp(ctk.CTk):
         self.btn_start.configure(text="Start Focus Session", fg_color="#1a73e8")
         self.entry_goal.configure(state="normal")
         self.entry_time.configure(state="normal")
-        self.log("Session stopped.")
-
+        self.log("Session stopped.")    
+    
     def show_alert(self, reason):
-        """Helper to show alert and reset flag when closed"""
-        tkinter.messagebox.showwarning("FocusGuard Alert", f"Get back to work!\n\nDetected: {reason}")
-        # When the user closes the box, this line runs:
+        """Display distraction alert to user."""
+        tkinter.messagebox.showwarning("FocusGuard Alert", f"Distraction detected: {reason}")
         self.alert_showing = False
 
     def run_monitoring_loop(self, goal):
