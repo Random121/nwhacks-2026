@@ -5,12 +5,14 @@ from PIL import Image
 from openai import OpenAI
 
 # Configuration
-MODEL_NAME = "google/gemini-2.0-flash-001"
+# MODEL_NAME = "google/gemini-2.0-flash-001"
+MODEL_NAME = "gemini-2.0-flash"
 
 class FocusDetector:
     def __init__(self, api_key):
         self.client = OpenAI(
-            base_url="https://openrouter.ai/api/v1",
+            base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
+            # base_url="https://openrouter.ai/api/v1",
             api_key=api_key,
             default_headers={
                 "HTTP-Referer": "https://github.com/Random121/nwhacks-2026",
@@ -69,6 +71,7 @@ class FocusDetector:
                 "- If the content directly supports the goal (e.g. a tutorial video, a documentation thread), say 'NO'. "
                 "- If the content is unrelated entertainment (e.g. music, memes, gaming), say 'YES'. "
                 "- If the screen is blank or code editor, say 'NO'. "
+                "- If there is a window with a title saying 'Get back to work', that is your own message window, and should be ignored. Examine all other windows still."
                 "Response format: 'YES: [Specific Reason]' or 'NO'."
             )
 

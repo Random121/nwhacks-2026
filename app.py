@@ -19,6 +19,8 @@ OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 ELEVENLABS_API_KEY = os.getenv("ELEVENLABS_API_KEY")
 SERIAL_PORT = os.getenv("SERIAL_PORT")
 SERIAL_BAUD = os.getenv("SERIAL_BAUD")
+AI_STUDIO_API_KEY = os.getenv("AI_STUDIO_API_KEY")
+OPENROUTER_API_KEY = AI_STUDIO_API_KEY
 ELEVENLABS_VOICE_ID = "KLZOWyG48RjZkAAjuM89"
 
 class FocusApp(ctk.CTk):
@@ -128,7 +130,7 @@ class FocusApp(ctk.CTk):
         self.monitor_thread = threading.Thread(target=self.run_monitoring_loop, args=(goal,))
         self.monitor_thread.daemon = True
         self.monitor_thread.start()
-        
+
         self.update_camera_feed()
 
     def update_camera_feed(self):
@@ -145,7 +147,7 @@ class FocusApp(ctk.CTk):
                 self.camera_label.configure(image=ctk_img, text="")
             else:
                 self.camera_label.configure(text="Camera Paused/Loading...")
-        
+
         self.after(30, self.update_camera_feed)
 
     def stop_session(self):
@@ -175,7 +177,7 @@ class FocusApp(ctk.CTk):
         alert.after(500, lambda: self.play_sound(reason))
 
         if self.slapper: self.slapper.slap_user()
-        
+
         # 4. WAIT FOR USER ACKNOWLEDGE
         alert.get()
 
@@ -248,7 +250,7 @@ class FocusApp(ctk.CTk):
                         self.alert_showing = True
                         self.after(0, lambda r=reason: self.show_alert(r))
                         time.sleep(5)
-                        break 
+                        break
                 time.sleep(0.1)
 
         if self.is_running:
